@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "419242393480",
+    "project_id": "fridapawls-2026",
+    "storage_bucket": "fridapawls-2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:419242393480:android:9637b35e5c03a128e4c43d",
+        "android_client_info": {
+          "package_name": "mx.edu.itesca.fridapawls_2026"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTp3OwlVUCoLzGHSViXk-aBCiTVHTmV-0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

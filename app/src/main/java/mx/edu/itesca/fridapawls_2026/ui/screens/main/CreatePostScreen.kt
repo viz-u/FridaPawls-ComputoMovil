@@ -31,7 +31,6 @@ fun CreatePostScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 🐶 Nombre
         OutlinedTextField(
             value = nombre,
             onValueChange = { nombre = it },
@@ -41,7 +40,6 @@ fun CreatePostScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // 📍 Ubicación
         OutlinedTextField(
             value = ubicacion,
             onValueChange = { ubicacion = it },
@@ -51,7 +49,6 @@ fun CreatePostScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // 📝 Descripción
         OutlinedTextField(
             value = descripcion,
             onValueChange = { descripcion = it },
@@ -62,7 +59,6 @@ fun CreatePostScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // 🏷️ Estado (dropdown)
         var expanded by remember { mutableStateOf(false) }
 
         ExposedDropdownMenuBox(
@@ -95,7 +91,6 @@ fun CreatePostScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // 📸 (placeholder imágenes)
         Text("Agregar imágenes (próximamente)")
 
         Spacer(modifier = Modifier.height(20.dp))

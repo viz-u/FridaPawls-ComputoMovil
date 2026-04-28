@@ -1,5 +1,6 @@
 package mx.edu.itesca.fridapawls_2026.ui.screens.auth
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -11,13 +12,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import mx.edu.itesca.fridapawls_2026.ui.theme.MainBlue
-
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import java.time.Instant
 import java.time.ZoneId
 
@@ -25,13 +28,17 @@ import java.time.ZoneId
 @Composable
 fun RegisterScreen(navController: NavController) {
 
+    val context = LocalContext.current
+    val auth = FirebaseAuth.getInstance()
+
     var nombre by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var celular by remember { mutableStateOf("") }
     var nacimiento by remember { mutableStateOf("") }
-    var showDatePicker by remember { mutableStateOf(false) }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -39,9 +46,8 @@ fun RegisterScreen(navController: NavController) {
             .padding(24.dp)
     ) {
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        // HEADER
+        Row(verticalAlignment = Alignment.CenterVertically) {
 
             IconButton(onClick = { navController.popBackStack() }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -67,7 +73,7 @@ fun RegisterScreen(navController: NavController) {
         OutlinedTextField(
             value = nombre,
             onValueChange = { nombre = it },
-            placeholder = { Text("Escribe tu nombre aqui...") },
+            placeholder = { Text("Escribe tu nombre...") },
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -84,13 +90,11 @@ fun RegisterScreen(navController: NavController) {
             modifier = Modifier.fillMaxWidth(),
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
-                val icon = if (passwordVisible)
-                    Icons.Default.Visibility
-                else
-                    Icons.Default.VisibilityOff
-
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(icon, contentDescription = "Ver contraseña")
+                    Icon(
+                        if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        contentDescription = "Ver contraseña"
+                    )
                 }
             }
         )
@@ -118,7 +122,7 @@ fun RegisterScreen(navController: NavController) {
         OutlinedTextField(
             value = celular,
             onValueChange = { celular = it },
-            placeholder = { Text("Ingresa tu número aqui...") },
+            placeholder = { Text("Ingresa tu número...") },
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
         )
@@ -147,12 +151,10 @@ fun RegisterScreen(navController: NavController) {
                 onDismissRequest = { showDatePicker = false },
                 confirmButton = {
                     TextButton(onClick = {
-                        val millis = datePickerState.selectedDateMillis
-                        if (millis != null) {
+                        datePickerState.selectedDateMillis?.let { millis ->
                             val date = Instant.ofEpochMilli(millis)
                                 .atZone(ZoneId.systemDefault())
                                 .toLocalDate()
-
                             nacimiento = date.toString()
                         }
                         showDatePicker = false
@@ -172,15 +174,65 @@ fun RegisterScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        // BOTÓN
+        // BOTÓN REGISTRO
         Button(
-            onClick = { navController.navigate("main") },
+            onClick = {
+
+                if (nombre.isBlank() || email.isBlank() || password.isBlank()) {
+                    Toast.makeText(context, "Completa los campos obligatorios", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+
+                if (password.length < 6) {
+                    Toast.makeText(context, "Mínimo 6 caracteres", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+
+                isLoading = true
+
+                auth.createUserWithEmailAndPassword(email, password)
+                    .addOnSuccessListener { result ->
+
+                        val uid = result.user!!.uid
+
+                        // 🚀 NAVEGA INMEDIATO
+                        navController.navigate("main") {
+                            popUpTo("register") { inclusive = true }
+                        }
+
+                        // 💾 GUARDAR EN SEGUNDO PLANO
+                        val user = hashMapOf(
+                            "uid" to uid,
+                            "nombre" to nombre,
+                            "email" to email,
+                            "celular" to celular,
+                            "nacimiento" to nacimiento
+                        )
+
+                        FirebaseFirestore.getInstance()
+                            .collection("users")
+                            .document(uid)
+                            .set(user)
+
+                        isLoading = false
+                    }
+                    .addOnFailureListener {
+                        isLoading = false
+                        Toast.makeText(context, it.message, Toast.LENGTH_LONG).show()
+                    }
+
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(55.dp),
             colors = ButtonDefaults.buttonColors(containerColor = MainBlue),
+            enabled = !isLoading
         ) {
-            Text("Acceder")
+            if (isLoading) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary)
+            } else {
+                Text("Crear cuenta")
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
