@@ -1,37 +1,58 @@
 package mx.edu.itesca.fridapawls_2026.ui.screens.main
 
-import android.provider.ContactsContract
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.navigation.NavController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import mx.edu.itesca.fridapawls_2026.navigation.Screen
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.*
 import mx.edu.itesca.fridapawls_2026.components.BottomBar
 
 @Composable
-fun MainScreen() {
+fun MainScreen(rootNavController: NavHostController) {
 
-    val navController = rememberNavController()
+    val innerNavController = rememberNavController()
 
     Scaffold(
-        bottomBar = { BottomBar(navController) },
         containerColor = Color.White
-    ){ padding ->
+    ) { innerPadding ->
 
-        NavHost(
-            navController = navController,
-            startDestination = Screen.Home.route,
-            modifier = Modifier.padding(padding)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
         ) {
-            composable(Screen.Home.route) { HomeScreen() }
-            composable(Screen.Chats.route) { ChatsScreen() }
-            composable(Screen.Profile.route) { ProfileScreen(navController) }
-            composable("post") {CreatePostScreen(navController)}
+
+            NavHost(
+                navController = innerNavController,
+                startDestination = "home",
+                modifier = Modifier.fillMaxSize()
+            ) {
+
+                composable("home") {
+                    HomeScreen(rootNavController)
+                }
+
+                composable("chats") {
+                    ChatsScreen()
+                }
+
+                composable("profile") {
+                    ProfileScreen(rootNavController)
+                }
+            }
+
+            // 🔥 BottomBar flotante REAL
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(androidx.compose.ui.Alignment.BottomCenter)
+                    .padding(bottom = 18.dp)
+            ) {
+                BottomBar(innerNavController)
+            }
         }
     }
 }

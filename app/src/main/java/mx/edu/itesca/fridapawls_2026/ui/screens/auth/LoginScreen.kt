@@ -17,8 +17,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import mx.edu.itesca.fridapawls_2026.ui.theme.MainBlue
 import com.google.firebase.auth.FirebaseAuth
+import mx.edu.itesca.fridapawls_2026.ui.theme.MainBlue
 
 @Composable
 fun LoginScreen(navController: NavController) {
@@ -40,7 +40,10 @@ fun LoginScreen(navController: NavController) {
         // 🔙 HEADER
         Row(verticalAlignment = Alignment.CenterVertically) {
 
-            IconButton(onClick = { navController.popBackStack() }) {
+            IconButton(
+                onClick = { navController.popBackStack() },
+                enabled = !isLoading
+            ) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
 
@@ -57,7 +60,6 @@ fun LoginScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        // 👋 BIENVENIDA
         Text(
             text = "Bienvenido",
             style = MaterialTheme.typography.headlineSmall,
@@ -75,7 +77,9 @@ fun LoginScreen(navController: NavController) {
             onValueChange = { email = it },
             placeholder = { Text("example@example.com") },
             modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            singleLine = true,
+            enabled = !isLoading
         )
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -90,13 +94,18 @@ fun LoginScreen(navController: NavController) {
             modifier = Modifier.fillMaxWidth(),
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                IconButton(
+                    onClick = { passwordVisible = !passwordVisible },
+                    enabled = !isLoading
+                ) {
                     Icon(
                         if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                        contentDescription = "Ver contraseña"
+                        contentDescription = null
                     )
                 }
-            }
+            },
+            singleLine = true,
+            enabled = !isLoading
         )
 
         Spacer(modifier = Modifier.height(6.dp))
@@ -104,7 +113,6 @@ fun LoginScreen(navController: NavController) {
         // 🔁 RECUPERAR PASSWORD
         TextButton(
             onClick = {
-
                 if (email.isBlank()) {
                     Toast.makeText(context, "Ingresa tu correo primero", Toast.LENGTH_SHORT).show()
                 } else {
@@ -113,18 +121,18 @@ fun LoginScreen(navController: NavController) {
                             Toast.makeText(context, "Correo de recuperación enviado", Toast.LENGTH_SHORT).show()
                         }
                         .addOnFailureListener {
-                            Toast.makeText(context, "Error: ${it.message}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, it.message ?: "Error", Toast.LENGTH_SHORT).show()
                         }
                 }
-
-            }
+            },
+            enabled = !isLoading
         ) {
             Text("Olvidé mi contraseña")
         }
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        // 🚀 BOTÓN LOGIN
+        // 🚀 LOGIN
         Button(
             onClick = {
 
@@ -135,18 +143,21 @@ fun LoginScreen(navController: NavController) {
 
                 isLoading = true
 
-                auth.signInWithEmailAndPassword(email, password)
+                auth.signInWithEmailAndPassword(email.trim(), password)
                     .addOnSuccessListener {
                         isLoading = false
+
                         Toast.makeText(context, "Bienvenido", Toast.LENGTH_SHORT).show()
 
+                        // 🔥 NAV CORRECTA (SIN CRASH)
                         navController.navigate("main") {
-                            popUpTo("login") { inclusive = true }
+                            popUpTo("welcome") { inclusive = true }
+                            launchSingleTop = true
                         }
                     }
                     .addOnFailureListener {
                         isLoading = false
-                        Toast.makeText(context, it.message, Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, it.message ?: "Error al iniciar sesión", Toast.LENGTH_LONG).show()
                     }
 
             },
@@ -156,10 +167,14 @@ fun LoginScreen(navController: NavController) {
             colors = ButtonDefaults.buttonColors(containerColor = MainBlue),
             enabled = !isLoading
         ) {
+
             if (isLoading) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary)
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp
+                )
             } else {
-                Text("Log In")
+                Text("Iniciar sesión")
             }
         }
 
@@ -171,20 +186,14 @@ fun LoginScreen(navController: NavController) {
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "¿No tienes una cuenta?",
-                style = MaterialTheme.typography.bodyLarge
-            )
+
+            Text("¿No tienes una cuenta?")
 
             TextButton(
                 onClick = { navController.navigate("register") },
-                contentPadding = PaddingValues(start = 4.dp)
+                enabled = !isLoading
             ) {
-                Text(
-                    text = "Regístrate",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MainBlue
-                )
+                Text("Regístrate", color = MainBlue)
             }
         }
     }

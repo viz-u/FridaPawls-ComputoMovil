@@ -1,13 +1,14 @@
 package mx.edu.itesca.fridapawls_2026.navigation
 
-sealed class Screen(val route: String) {
-    object Login : Screen("login")
-    object Register : Screen("register")
-    object Welcome : Screen("welcome")
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.ui.graphics.vector.ImageVector
 
-    object Main : Screen("main") // contenedor con bottom nav
-
-    object Home : Screen("home")
-    object Chats : Screen("chats")
-    object Profile : Screen("profile")
+sealed class Screen(
+    val route: String,
+    val icon: ImageVector
+) {
+    object Home : Screen("home", Icons.Default.Home)
+    object Chats : Screen("chats", Icons.Default.Chat)
+    object Profile : Screen("profile", Icons.Default.Person)
 }

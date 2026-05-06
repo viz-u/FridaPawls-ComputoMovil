@@ -1,5 +1,6 @@
 package mx.edu.itesca.fridapawls_2026.ui.screens.auth
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -30,6 +31,7 @@ fun RegisterScreen(navController: NavController) {
 
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
+    val db = FirebaseFirestore.getInstance()
 
     var nombre by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -195,12 +197,6 @@ fun RegisterScreen(navController: NavController) {
 
                         val uid = result.user!!.uid
 
-                        // 🚀 NAVEGA INMEDIATO
-                        navController.navigate("main") {
-                            popUpTo("register") { inclusive = true }
-                        }
-
-                        // 💾 GUARDAR EN SEGUNDO PLANO
                         val user = hashMapOf(
                             "uid" to uid,
                             "nombre" to nombre,
@@ -209,18 +205,30 @@ fun RegisterScreen(navController: NavController) {
                             "nacimiento" to nacimiento
                         )
 
-                        FirebaseFirestore.getInstance()
-                            .collection("users")
+                        // 🔥 GUARDAR EN FIRESTORE
+                        db.collection("users")
                             .document(uid)
                             .set(user)
+                            .addOnSuccessListener {
+                                Log.d("FIRESTORE", "Usuario guardado correctamente")
 
-                        isLoading = false
+                                isLoading = false
+
+                                // 🚀 SOLO NAVEGA SI TODO SALIÓ BIEN
+                                navController.navigate("main") {
+                                    popUpTo("register") { inclusive = true }
+                                }
+                            }
+                            .addOnFailureListener { e ->
+                                isLoading = false
+                                Log.e("FIRESTORE", "Error al guardar", e)
+                                Toast.makeText(context, "Error al guardar usuario", Toast.LENGTH_LONG).show()
+                            }
                     }
                     .addOnFailureListener {
                         isLoading = false
                         Toast.makeText(context, it.message, Toast.LENGTH_LONG).show()
                     }
-
             },
             modifier = Modifier
                 .fillMaxWidth()
