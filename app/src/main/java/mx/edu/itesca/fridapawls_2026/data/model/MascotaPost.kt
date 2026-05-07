@@ -8,6 +8,9 @@ data class MascotaPost(
     val descripcion: String = "",
     val ubicacion: String = "",
     val estado: String = "",
+    val tipoAnimal: String = "",
+    val lat: Double? = null,
+    val lng: Double? = null,
     val imagenes: List<String> = emptyList(),
     val uid: String = "",
     val timestamp: Timestamp? = null

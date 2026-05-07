@@ -1,17 +1,17 @@
 package mx.edu.itesca.fridapawls_2026.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.navigation.NavType
-import androidx.navigation.compose.*
-import androidx.navigation.navArgument
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.google.firebase.auth.FirebaseAuth
-import mx.edu.itesca.fridapawls_2026.ui.screens.auth.*
-import mx.edu.itesca.fridapawls_2026.ui.screens.main.*
+import mx.edu.itesca.fridapawls_2026.ui.screens.auth.LoginScreen
+import mx.edu.itesca.fridapawls_2026.ui.screens.auth.RegisterScreen
+import mx.edu.itesca.fridapawls_2026.ui.screens.auth.WelcomeScreen
+import mx.edu.itesca.fridapawls_2026.ui.screens.chat.ChatDetailScreen
+import mx.edu.itesca.fridapawls_2026.ui.screens.main.MainScreen
+import mx.edu.itesca.fridapawls_2026.ui.screens.post.CreatePostScreen
+import mx.edu.itesca.fridapawls_2026.ui.screens.post.EditPostScreen
 
 @Composable
 fun NavGraph() {
@@ -19,44 +19,60 @@ fun NavGraph() {
     val navController = rememberNavController()
     val auth = FirebaseAuth.getInstance()
 
-    var isLoggedIn by remember { mutableStateOf(auth.currentUser != null) }
-
-    // 🔥 escucha cambios de sesión
-    DisposableEffect(Unit) {
-        val listener = FirebaseAuth.AuthStateListener {
-            isLoggedIn = it.currentUser != null
-        }
-
-        auth.addAuthStateListener(listener)
-
-        onDispose {
-            auth.removeAuthStateListener(listener)
-        }
-    }
-
     NavHost(
         navController = navController,
-        startDestination = if (isLoggedIn) "main" else "welcome"
+        startDestination = if (auth.currentUser != null) "main_tabs" else "welcome"
     ) {
 
-        composable("welcome") { WelcomeScreen(navController) }
-        composable("login") { LoginScreen(navController) }
-        composable("register") { RegisterScreen(navController) }
+        composable("welcome") {
+            WelcomeScreen(navController)
+        }
 
-        composable("main") {
-            MainScreen(navController)
+        composable("login") {
+            LoginScreen(navController)
+        }
+
+        composable("register") {
+            RegisterScreen(navController)
+        }
+
+        composable("main_tabs") {
+            MainScreen(rootNavController = navController)
         }
 
         composable("post") {
             CreatePostScreen(navController)
         }
 
-        composable(
-            "edit_post/{postId}",
-            arguments = listOf(navArgument("postId") { type = NavType.StringType })
-        ) {
-            val id = it.arguments?.getString("postId") ?: ""
-            EditPostScreen(id, navController)
+        composable("edit_post/{postId}") { backStackEntry ->
+
+            val postId = backStackEntry.arguments?.getString("postId") ?: ""
+
+            EditPostScreen(
+                postId,
+                navController
+            )
+        }
+
+        composable("chat?chatId={chatId}&receiverId={receiverId}") { backStackEntry ->
+
+            val chatId = backStackEntry.arguments?.getString("chatId") ?: ""
+            val receiverId = backStackEntry.arguments?.getString("receiverId") ?: ""
+            val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
+            if (
+                chatId.isBlank() ||
+                receiverId.isBlank() ||
+                currentUserId.isBlank()
+            ) {
+                return@composable
+            }
+
+            ChatDetailScreen(
+                chatId = chatId,
+                receiverId = receiverId,
+                currentUserId = currentUserId
+            )
         }
     }
 }

@@ -1,5 +1,6 @@
 package mx.edu.itesca.fridapawls_2026.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
@@ -11,62 +12,78 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import mx.edu.itesca.fridapawls_2026.data.model.MascotaPost
 import mx.edu.itesca.fridapawls_2026.ui.theme.MainBlue
 import mx.edu.itesca.fridapawls_2026.ui.theme.MainPurple
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PostCard(
     post: MascotaPost,
     onChatClick: () -> Unit = {},
-    onEditClick: (String) -> Unit = {}
+    onEditClick: (String) -> Unit = {},
+    onDeleteClick: (MascotaPost) -> Unit = {}
 ) {
-
     val currentUser = FirebaseAuth.getInstance().currentUser
-    val db = FirebaseFirestore.getInstance()
-
     val isOwner = currentUser?.uid == post.uid
 
-    val pagerState = rememberPagerState { post.imagenes.size }
+    val pagerState = rememberPagerState(
+        pageCount = { post.imagenes.size }
+    )
 
     Card(
         shape = RoundedCornerShape(22.dp),
         elevation = CardDefaults.cardElevation(10.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-
         Column {
 
-            // 🖼️ CARRUSEL
-            HorizontalPager(state = pagerState) { page ->
-                AsyncImage(
-                    model = post.imagenes[page],
-                    contentDescription = null,
+            if (post.imagenes.isNotEmpty()) {
+
+                HorizontalPager(
+                    state = pagerState
+                ) { page ->
+
+                    AsyncImage(
+                        model = post.imagenes[page],
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(240.dp),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
+            } else {
+
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(240.dp),
-                    contentScale = ContentScale.Crop
-                )
+                        .height(240.dp)
+                        .background(Color.LightGray),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Sin imagen")
+                }
             }
 
-            // 🌈 DEGRADADO INFERIOR
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                androidx.compose.ui.graphics.Color.Transparent,
+                                Color.Transparent,
                                 MainPurple.copy(alpha = 0.2f),
                                 MainBlue.copy(alpha = 0.4f)
                             )
@@ -82,14 +99,24 @@ fun PostCard(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
 
-                        Row {
-                            Icon(Icons.Default.LocationOn, null, tint = MainPurple)
-                            Spacer(Modifier.width(4.dp))
-                            Text(post.ubicacion)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = null,
+                                tint = MainPurple
+                            )
+
+                            Spacer(modifier = Modifier.width(4.dp))
+
+                            Text(
+                                text = post.ubicacion.ifBlank { "Sin ubicación" }
+                            )
                         }
 
                         Text(
-                            post.estado,
+                            text = post.estado.ifBlank { "Sin estado" },
                             modifier = Modifier
                                 .background(MainPurple, RoundedCornerShape(12.dp))
                                 .padding(horizontal = 10.dp, vertical = 4.dp),
@@ -97,17 +124,21 @@ fun PostCard(
                         )
                     }
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    Text(post.nombreMascota, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = post.nombreMascota.ifBlank { "Mascota sin nombre" },
+                        fontWeight = FontWeight.Bold
+                    )
 
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
-                    Text(post.descripcion)
+                    Text(
+                        text = post.descripcion.ifBlank { "Sin descripción" }
+                    )
 
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    // 🔥 ACCIONES
                     if (isOwner) {
 
                         Row(
@@ -115,31 +146,45 @@ fun PostCard(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
 
-                            // ✏️ EDITAR
                             Button(
-                                onClick = { onEditClick(post.id) },
+                                onClick = {
+                                    if (post.id.isNotBlank()) {
+                                        onEditClick(post.id)
+                                    }
+                                },
                                 modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = MainPurple)
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MainPurple
+                                )
                             ) {
-                                Icon(Icons.Default.Edit, null)
-                                Spacer(Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = null
+                                )
+
+                                Spacer(modifier = Modifier.width(6.dp))
+
                                 Text("Editar")
                             }
 
-                            // 🗑️ ELIMINAR
                             Button(
                                 onClick = {
-                                    db.collection("posts")
-                                        .document(post.id)
-                                        .delete()
+                                    if (post.id.isNotBlank()) {
+                                        onDeleteClick(post)
+                                    }
                                 },
                                 modifier = Modifier.weight(1f),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.error
                                 )
                             ) {
-                                Icon(Icons.Default.Delete, null)
-                                Spacer(Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = null
+                                )
+
+                                Spacer(modifier = Modifier.width(6.dp))
+
                                 Text("Eliminar")
                             }
                         }
@@ -147,12 +192,21 @@ fun PostCard(
                     } else {
 
                         Button(
-                            onClick = onChatClick,
+                            onClick = {
+                                onChatClick()
+                            },
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(MainBlue)
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MainBlue
+                            )
                         ) {
-                            Icon(Icons.Default.Chat, null)
-                            Spacer(Modifier.width(8.dp))
+                            Icon(
+                                imageVector = Icons.Default.Chat,
+                                contentDescription = null
+                            )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
                             Text("Iniciar chat")
                         }
                     }

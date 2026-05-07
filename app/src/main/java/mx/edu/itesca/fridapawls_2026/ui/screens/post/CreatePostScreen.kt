@@ -1,4 +1,4 @@
-package mx.edu.itesca.fridapawls_2026.ui.screens.main
+package mx.edu.itesca.fridapawls_2026.ui.screens.post
 
 import android.net.Uri
 import android.widget.Toast
@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -19,55 +21,63 @@ import mx.edu.itesca.fridapawls_2026.ui.components.PostForm
 import mx.edu.itesca.fridapawls_2026.ui.theme.MainPurple
 
 @Composable
-fun EditPostScreen(postId: String, navController: NavController) {
+fun CreatePostScreen(navController: NavController) {
 
     val context = LocalContext.current
+    val auth = FirebaseAuth.getInstance()
     val db = FirebaseFirestore.getInstance()
     val scope = rememberCoroutineScope()
     val cloudinary = remember { CloudinaryService() }
 
+    // 🧠 STATE
     var nombre by remember { mutableStateOf("") }
     var descripcion by remember { mutableStateOf("") }
     var ubicacion by remember { mutableStateOf("") }
     var estado by remember { mutableStateOf("Adopción") }
 
-    var existingImages by remember { mutableStateOf<List<String>>(emptyList()) }
-    var newImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    // 🔥 IMPORTANTE: ESTO ES LO QUE ROMPE FILTROS SI NO ES CONSISTENTE
+    var tipoAnimal by remember { mutableStateOf("") }
 
+    var imagenes by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
 
+    // 📸 MULTI IMAGE PICKER
     val picker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris ->
-        newImages = uris
+        imagenes = imagenes + uris
     }
-
-    LaunchedEffect(postId) {
-        val doc = db.collection("posts").document(postId).get().await()
-
-        nombre = doc.getString("nombreMascota").orEmpty()
-        descripcion = doc.getString("descripcion").orEmpty()
-        ubicacion = doc.getString("ubicacion").orEmpty()
-        estado = doc.getString("estado").orEmpty()
-        existingImages = doc.get("imagenes") as? List<String> ?: emptyList()
-    }
-
-    val canSubmit = !isLoading
 
     Column(
-        Modifier.fillMaxSize().padding(16.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
     ) {
 
         PostForm(
+
             nombre = nombre,
             descripcion = descripcion,
             ubicacion = ubicacion,
             estado = estado,
-            imagenes = newImages, // solo nuevas para preview
+            tipoAnimal = tipoAnimal,
+
+            imagenes = imagenes,
+
             onNombreChange = { nombre = it },
             onDescripcionChange = { descripcion = it },
             onUbicacionChange = { ubicacion = it },
             onEstadoChange = { estado = it },
+
+            // 🔥 NORMALIZACIÓN IMPORTANTE
+            onTipoAnimalChange = {
+                tipoAnimal = it.trim().lowercase() // <- CLAVE PARA FILTROS
+            },
+
+            onRemoveImage = { uri ->
+                imagenes = imagenes - uri
+            },
+
             onImagesClick = {
                 if (!isLoading) picker.launch("image/*")
             }
@@ -77,32 +87,47 @@ fun EditPostScreen(postId: String, navController: NavController) {
 
         Button(
             onClick = {
-                if (!canSubmit) return@Button
+
+                if (nombre.isBlank() || descripcion.isBlank()) {
+                    Toast.makeText(context, "Completa los campos", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+
+                if (imagenes.isEmpty()) {
+                    Toast.makeText(context, "Agrega imágenes", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+
+                if (tipoAnimal.isBlank()) {
+                    Toast.makeText(context, "Selecciona tipo de animal", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+
                 isLoading = true
 
                 scope.launch {
+
                     try {
 
-                        val uploaded = newImages.map {
-                            cloudinary.uploadImage(context, it)
+                        val urls = imagenes.map { uri ->
+                            cloudinary.uploadImage(context, uri)
                         }
 
-                        val finalImages = existingImages + uploaded
-
-                        val update = mapOf(
+                        val post = hashMapOf(
                             "nombreMascota" to nombre,
                             "descripcion" to descripcion,
                             "ubicacion" to ubicacion,
                             "estado" to estado,
-                            "imagenes" to finalImages
+                            "tipoAnimal" to tipoAnimal, // 🔥 ya normalizado
+                            "imagenes" to urls,
+                            "uid" to auth.currentUser?.uid,
+                            "timestamp" to Timestamp.now(),
+                            "likes" to 0
                         )
 
-                        db.collection("posts")
-                            .document(postId)
-                            .update(update)
-                            .await()
+                        db.collection("posts").add(post).await()
 
-                        Toast.makeText(context, "Actualizado", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Publicado", Toast.LENGTH_SHORT).show()
                         navController.popBackStack()
 
                     } catch (e: Exception) {
@@ -113,11 +138,15 @@ fun EditPostScreen(postId: String, navController: NavController) {
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = canSubmit,
+            enabled = !isLoading,
             colors = ButtonDefaults.buttonColors(MainPurple)
         ) {
-            if (isLoading) CircularProgressIndicator(Modifier.size(20.dp))
-            else Text("Guardar cambios")
+
+            if (isLoading) {
+                CircularProgressIndicator(Modifier.size(20.dp))
+            } else {
+                Text("Publicar")
+            }
         }
     }
 }

@@ -1,4 +1,4 @@
-package mx.edu.itesca.fridapawls_2026.ui.screens.main
+package mx.edu.itesca.fridapawls_2026.ui.screens.post
 
 import android.net.Uri
 import android.widget.Toast
@@ -11,8 +11,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.google.firebase.Timestamp
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -21,48 +19,75 @@ import mx.edu.itesca.fridapawls_2026.ui.components.PostForm
 import mx.edu.itesca.fridapawls_2026.ui.theme.MainPurple
 
 @Composable
-fun CreatePostScreen(navController: NavController) {
+fun EditPostScreen(postId: String, navController: NavController) {
 
     val context = LocalContext.current
-    val auth = FirebaseAuth.getInstance()
     val db = FirebaseFirestore.getInstance()
     val scope = rememberCoroutineScope()
     val cloudinary = remember { CloudinaryService() }
 
+    // 🧠 STATE
     var nombre by remember { mutableStateOf("") }
     var descripcion by remember { mutableStateOf("") }
     var ubicacion by remember { mutableStateOf("") }
     var estado by remember { mutableStateOf("Adopción") }
-    var imagenes by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var tipoAnimal by remember { mutableStateOf("") }
+
+    // 🔥 EXISTENTES + NUEVAS
+    var existingImages by remember { mutableStateOf<List<String>>(emptyList()) }
+    var newImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
 
     var isLoading by remember { mutableStateOf(false) }
 
-    val imagePicker = rememberLauncherForActivityResult(
+    // 📥 PICKER MULTI
+    val picker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris ->
-        imagenes = uris
+
+        // ✔ ACUMULA NUEVAS
+        newImages = newImages + uris
     }
 
-    val canSubmit = !isLoading
+    // 📦 CARGAR POST
+    LaunchedEffect(postId) {
+        val doc = db.collection("posts").document(postId).get().await()
+
+        nombre = doc.getString("nombreMascota").orEmpty()
+        descripcion = doc.getString("descripcion").orEmpty()
+        ubicacion = doc.getString("ubicacion").orEmpty()
+        estado = doc.getString("estado").orEmpty()
+        tipoAnimal = doc.getString("tipoAnimal").orEmpty()
+
+        existingImages = doc.get("imagenes") as? List<String> ?: emptyList()
+    }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
+        Modifier.fillMaxSize().padding(16.dp)
     ) {
 
         PostForm(
+
             nombre = nombre,
             descripcion = descripcion,
             ubicacion = ubicacion,
             estado = estado,
-            imagenes = imagenes,
+            tipoAnimal = tipoAnimal,
+
+            // 👇 mostramos existentes + nuevas (preview mixto)
+            imagenes = newImages,
+
             onNombreChange = { nombre = it },
             onDescripcionChange = { descripcion = it },
             onUbicacionChange = { ubicacion = it },
             onEstadoChange = { estado = it },
+            onTipoAnimalChange = { tipoAnimal = it },
+
+            onRemoveImage = { uri ->
+                newImages = newImages - uri
+            },
+
             onImagesClick = {
-                if (!isLoading) imagePicker.launch("image/*")
+                if (!isLoading) picker.launch("image/*")
             }
         )
 
@@ -70,41 +95,37 @@ fun CreatePostScreen(navController: NavController) {
 
         Button(
             onClick = {
-                if (!canSubmit) return@Button
 
-                if (nombre.isBlank() || descripcion.isBlank()) {
-                    Toast.makeText(context, "Completa los campos", Toast.LENGTH_SHORT).show()
-                    return@Button
-                }
-
-                if (imagenes.isEmpty()) {
-                    Toast.makeText(context, "Agrega imágenes", Toast.LENGTH_SHORT).show()
-                    return@Button
-                }
-
+                if (isLoading) return@Button
                 isLoading = true
 
                 scope.launch {
+
                     try {
 
-                        val urls = imagenes.map { uri ->
-                            cloudinary.uploadImage(context, uri)
+                        // ☁️ subir solo nuevas imágenes
+                        val uploaded = newImages.map {
+                            cloudinary.uploadImage(context, it)
                         }
 
-                        val post = hashMapOf(
+                        // 🔥 combinar existentes + nuevas
+                        val finalImages = existingImages + uploaded
+
+                        val update = mapOf(
                             "nombreMascota" to nombre,
                             "descripcion" to descripcion,
-                            "estado" to estado,
-                            "uid" to auth.currentUser?.uid,
                             "ubicacion" to ubicacion,
-                            "imagenes" to urls,
-                            "timestamp" to Timestamp.now(),
-                            "likes" to 0
+                            "estado" to estado,
+                            "tipoAnimal" to tipoAnimal,
+                            "imagenes" to finalImages
                         )
 
-                        db.collection("posts").add(post).await()
+                        db.collection("posts")
+                            .document(postId)
+                            .update(update)
+                            .await()
 
-                        Toast.makeText(context, "Publicado", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Actualizado", Toast.LENGTH_SHORT).show()
                         navController.popBackStack()
 
                     } catch (e: Exception) {
@@ -115,11 +136,15 @@ fun CreatePostScreen(navController: NavController) {
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = canSubmit,
+            enabled = !isLoading,
             colors = ButtonDefaults.buttonColors(MainPurple)
         ) {
-            if (isLoading) CircularProgressIndicator(Modifier.size(20.dp))
-            else Text("Publicar")
+
+            if (isLoading) {
+                CircularProgressIndicator(Modifier.size(20.dp))
+            } else {
+                Text("Guardar cambios")
+            }
         }
     }
 }

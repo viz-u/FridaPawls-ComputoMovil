@@ -1,4 +1,4 @@
-package mx.edu.itesca.fridapawls_2026.ui.screens.main
+package mx.edu.itesca.fridapawls_2026.ui.screens.profile
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -24,6 +24,8 @@ fun ProfileScreen(navController: NavController) {
     val user = auth.currentUser
 
     var posts by remember { mutableStateOf(listOf<MascotaPost>()) }
+    var nombre by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
 
     if (user == null) {
         LaunchedEffect(Unit) {
@@ -34,7 +36,17 @@ fun ProfileScreen(navController: NavController) {
         return
     }
 
+    // 🔥 CARGAR INFO USUARIO
     LaunchedEffect(Unit) {
+        db.collection("users")
+            .document(user.uid)
+            .get()
+            .addOnSuccessListener { doc ->
+                nombre = doc.getString("nombre") ?: "Usuario"
+                email = doc.getString("email") ?: user.email ?: ""
+            }
+
+        // 🔥 POSTS DEL USUARIO
         db.collection("posts")
             .whereEqualTo("uid", user.uid)
             .get()
@@ -51,26 +63,33 @@ fun ProfileScreen(navController: NavController) {
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
 
-                // 👤 FOTO (placeholder)
+                // 👤 ICONO (SIN IMAGEN)
                 Box(
                     modifier = Modifier
                         .size(100.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                )
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = nombre.take(1).uppercase(),
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
                 // 👤 NOMBRE
                 Text(
-                    text = user.displayName ?: "Usuario",
+                    text = nombre,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium
                 )
 
                 // 📧 EMAIL
                 Text(
-                    text = user.email ?: "",
+                    text = email,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -104,7 +123,6 @@ fun ProfileScreen(navController: NavController) {
         }
 
         items(posts) { post ->
-
             PostCard(
                 post = post,
                 onEditClick = {
